@@ -1,0 +1,237 @@
+  <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+
+    <!-- This is the CDN link for the bootstrap css. -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <style>
+
+        #after{
+            display: none;
+        }
+        #userslist{
+            border: 2px solid blue;
+            height: 67vh;
+            width: 23%;
+            float: left;
+            overflow: auto;
+            position: absolute;
+            top: 8%;
+            left: 1%;
+        }
+        h2{
+            margin-left: 15px;
+            position: fixed;
+        }
+        #chatbox{
+            border: 2px solid green;
+            height: 67vh;
+            width: 72%;
+            float: right;
+            overflow: auto;
+            position: absolute;
+            top:8%;
+            right: 2%; 
+        }
+        #message{
+            position: absolute;
+            bottom: 1%;
+            right: 20%;
+            width: 50%;
+            border: 2px solid red;
+        }
+        #sendbutton{
+            position: absolute;
+            bottom: 1%;
+            right: 14%;
+        }
+        #messages{
+            list-style: none;
+            margin: 0px;
+            padding: 0px;
+        }
+        #messages li{
+            padding: 5px 10px;
+        }
+        #messages li:nth-child(odd){
+            background: aquamarine;
+        }
+        #currentuser{
+            padding: 10px;
+            display: none;
+            position: absolute;
+            bottom: 1%;
+            left: 3%;
+            border: 4px solid lightseagreen;
+        }
+        #h{
+            position: absolute;
+            top: 0%;
+            right: 32%;
+        }
+        .active{
+            display: block;
+        }
+        .inactive{
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <!-- this div contains the whole webpage -->
+    <div id="container">
+
+        <!-- This div contains an input tag and a submit button needed for login, and after this submit button is pressed and then the display property of this div will be set to 'none'. -->
+        <div id="before">
+            <label for="username">Enter Username</label><br>
+            <input type="text" id="username" class="form-control" autofocus placeholder="Type your name here"><br>
+            <button id="submitbutton" class="btn btn-primary">Submit</button>
+        </div>
+
+        <!-- This div contains the elements that will be displayed after the submit button has been pressed. -->
+        <div id="after">
+            <h2>Online users</h2>
+
+            <!-- This div displays the list of all online users. -->
+            <div id="userslist">
+            </div>
+            <h2 id="h">Messages</h2>
+
+            <!-- This div will contain the inbox for each user. -->
+            <div id="chatbox">
+            </div>
+
+            <!-- This textarea will contain the message that is to be sent. -->
+            <textarea  id="message" cols="50" rows="2" class="form-control"></textarea>
+
+            <!-- This button will send the message to the inbox. -->
+            <button id="sendbutton" class="btn btn-success">send</button>
+
+            <!-- This button will the display the current user. -->
+            <button id="currentuser" class="btn btn-dark"></button>
+        </div>
+        
+    </div>
+    
+    <!-- This script tag will serve as the client side for the following application. -->
+    <script>
+
+        var socket = io();
+
+        // Here we are getting elements from the specific id's
+        var submit_button = document.querySelector('#submitbutton');
+        var send_button = document.querySelector('#sendbutton');
+        var user_list = document.querySelector('#userslist');
+        var current_user = document.querySelector('#currentuser');
+        var chat_box = document.querySelector('#chatbox');
+
+
+        var userid,nm;
+
+        //This flag is used to check whether the chatbox div is empty or not so that inbox of another user can be displayed in it.
+        var isClear2 = false;
+
+        submit_button.addEventListener('click',()=>{
+
+            userid = document.querySelector('#username').value;
+            document.querySelector('#before').style.display = 'none';
+            document.querySelector('#after').style.display = 'block';
+            current_user.innerHTML = 'Current User : '+userid;
+            current_user.style.display = 'block';
+            
+            //Here the socket fires the event named 'register_user' and this event will be fired when a new user registers.
+            socket.emit('register_user',{uid:userid,sid:socket.id});    
+        });
+
+        send_button.addEventListener('click',()=>{
+            var val = document.querySelector('#message').value;
+            
+            //Here the socket will fire the event named 'chat' when the send button will be clicked to send the message.
+            socket.emit('chat',{uid:userid , v:val, nid:nm});
+            document.querySelector('#message').value = "";
+        });
+
+        //Here the socket will handle the event named 'username_already' that will be fired when the server finds a duplicate user.
+        socket.on('username_already',data=>{
+            alert('Username '+data.uid+' already found try another username');
+            document.querySelector('#before').style.display = 'block';
+            document.querySelector('#after').style.display = 'none';
+            document.querySelector('#username').value = "";
+            document.querySelector('#username').focus();
+        });
+        
+        //Here the socket handles the event named 'new_user' that will be fired when a new user is logged in.
+        socket.on('new_user',(users)=>{
+            user_list.innerHTML = "";
+            users.forEach(element => {
+
+                //This flag variable is used to check that only one inbox is created for chat with one user.
+                var isDivCreated = true;
+
+
+                //This variable holds the div that contains inbox.
+                var chatdiv;
+
+                //Here we are checking that the current user should not see his name in his online users list.
+                if(element.name === userid){
+                    return;           
+                }
+
+                //Here we are creating a button that holds the name of the user that is logged in.
+                var new_mate = document.createElement('button');
+                new_mate.innerHTML = element.name;
+                new_mate.id = element.name;
+                new_mate.className = "btn btn-warning";
+                new_mate.style.margin = '2px';
+
+
+                //Here we are appending the username in the div that contains the list of the online users.
+                user_list.appendChild(new_mate);
+                user_list.appendChild(document.createElement('br'));   
+                new_mate.addEventListener('click',()=>{
+                    console.log(userid);
+                    nm = element.name;                    
+                    
+                    if(isDivCreated){
+                        
+                            chatdiv = document.createElement('div');
+                            chatdiv.id = element.name;
+                            chatdiv.innerHTML = `Inbox of ${element.name +' and '+userid}`;
+                            var ul = document.createElement('ul');
+                            ul.id = 'messages'; 
+                            chatdiv.appendChild(ul);
+                        
+                    }
+
+                    if(isClear2){
+                        var buttons = document.querySelectorAll(`#chatbox > div:not(#${chatdiv.id})`);
+                        buttons.forEach(element=>{
+                            element.classList.remove('active');
+                        });
+                        buttons.forEach(element=>{
+                            element.classList.add('inactive');
+                        });
+                    }
+                    chatdiv.className = "active";
+                    chat_box.appendChild(chatdiv);
+                    isClear2 = true;
+                    isDivCreated = false;
+
+                    //Here the socket fires the event named 'handle_new_user' to exchange the inbox for each user.
+                    socket.emit('handle_new_user',{uid:userid,nid:element.name});
+                });
+            }); 
+        });
+
+    </script>
+</body>
+</html>
+
+
+
